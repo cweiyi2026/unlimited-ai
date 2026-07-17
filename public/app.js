@@ -1,5 +1,6 @@
 // public/app.js
 (() => {
+  // ============ DOM ============
   const historyWrap = document.getElementById("history");
   const chatEl = document.getElementById("chat");
   const inputEl = document.getElementById("msg");
@@ -24,40 +25,22 @@
   const donateMask = document.getElementById("donateMask");
   const donateClose = document.getElementById("donateClose");
 
+  const historyListEl = document.getElementById("historyList");
+  const newChatBtn = document.getElementById("newChatBtn");
+
+  if (!historyWrap || !chatEl || !inputEl || !composerEl || !spacerEl) {
+    console.error("Missing required DOM nodes. Check ids: #history #chat #msg #composer #bottom-spacer.");
+    return;
+  }
+
+  // ============ Models ============
   const MODELS = (window.APP_MODELS || [
     { id: "meta/llama-3.1-405b-instruct", label: "meta/llama-3.1" },
     { id: "z-ai/glm5", label: "glm5" },
     { id: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
   ]);
 
-  const session = [];
-
-  let totalPromptTokens = 0;
-  let totalCompletionTokens = 0;
-  let totalInEstimate = 0;
-  let totalOutEstimate = 0;
-
-  // ====== 本地存储 Key（严格分离：历史 vs 自定义模板） ======
-  const LS_MODEL = "cfw_model";
-  const LS_USE_BUILTIN = "cfw_use_builtin";      // "1"=😈, "0"=😇
-
-  const LS_HISTORY_ENABLED = "cfw_history_enabled";
-  const LS_CHAT_SESSION = "cfw_chat_session_v1";
-
-  const LS_PROMPT_ENABLED = "cfw_prompt_enabled";
-  const LS_CUSTOM_PROMPT = "cfw_custom_prompt_v1";
-
-  // ✅ 页面密码：每次进页面都弹窗（不落盘）
-  let chatPassword = null;
-
-  let useBuiltin = (localStorage.getItem(LS_USE_BUILTIN) ?? "1") === "1";
-  personaToggle.textContent = useBuiltin ? "😈" : "😇";
-
-  let historyEnabled = (localStorage.getItem(LS_HISTORY_ENABLED) ?? "0") === "1";
-  let promptEnabled  = (localStorage.getItem(LS_PROMPT_ENABLED) ?? "1") === "1";
-  historyKeepEl.checked = historyEnabled;
-  promptKeepEl.checked = promptEnabled;
-
+  // ============ Token Estimator ============
   function estimateTokens(text){
     if (!text) return 0;
     let cjk = 0, ascii = 0;
@@ -75,6 +58,7 @@
     return cjk + Math.ceil(ascii / 4);
   }
 
+  // ============ Layout helpers ============
   function updateSpacer(){
     if (!composerEl || !spacerEl) return;
     const rect = composerEl.getBoundingClientRect();
@@ -90,6 +74,7 @@
     const threshold = 120;
     return (historyWrap.scrollHeight - historyWrap.scrollTop - historyWrap.clientHeight) < threshold;
   }
+
   function scrollToBottom(){
     historyWrap.scrollTo({ top: historyWrap.scrollHeight, behavior: "auto" });
   }
@@ -141,36 +126,160 @@
     }
   }
 
-  function persistSessionIfEnabled(){
-    if (!historyEnabled) return;
-    try { localStorage.setItem(LS_CHAT_SESSION, JSON.stringify(session)); } catch {}
-  }
+  // ============ Storage Keys ============
+  const LS_MODEL = "cfw_model";
+  const LS_USE_BUILTIN = "cfw_use_builtin";
 
-  function restoreSessionIfEnabled(){
-    if (!historyEnabled) return;
-    const raw = localStorage.getItem(LS_CHAT_SESSION);
-    if (!raw) return;
+  const LS_HISTORY_ENABLED = "cfw_history_enabled";
+  const LS_CHAT_SESSION = "cfw_chat_session_v1";
 
+  const LS_PROMPT_ENABLED = "cfw_prompt_enabled";
+  const LS_CUSTOM_PROMPT = "cfw_custom_prompt_v1";
+
+  const LS_CONVERSATIONS = "cfw_conversations_v1";
+  const LS_CURRENT_CONV_ID = "cfw_current_conversation_id_v1";
+
+  // ============ Persona / Settings ============
+  let chatPassword = null;
+
+  let useBuiltin = (localStorage.getItem(LS_USE_BUILTIN) ?? "1") === "1";
+  if (personaToggle) personaToggle.textContent = useBuiltin ? "😈" : "😇";
+
+  let historyEnabled = (localStorage.getItem(LS_HISTORY_ENABLED) ?? "0") === "1";
+  let promptEnabled = (localStorage.getItem(LS_PROMPT_ENABLED) ?? "1") === "1";
+
+  if (historyKeepEl) historyKeepEl.checked = historyEnabled;
+  if (promptKeepEl) promptKeepEl.checked = promptEnabled;
+
+  function persistConversationsIfEnabled(conversations){
+    if (!historyEnabled) return;
     try {
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return;
-
-      session.length = 0;
-      for (const m of arr) {
-        if (!m || (m.role !== "user" && m.role !== "assistant") || typeof m.content !== "string") continue;
-        session.push({ role: m.role, content: m.content });
-      }
-
-      clearUIRows();
-      for (const m of session) {
-        const r = makeRow(m.role === "user" ? "user" : "assistant");
-        r.bubble.textContent = m.content;
-        r.stats.textContent = "";
-      }
+      localStorage.setItem(LS_CONVERSATIONS, JSON.stringify(conversations));
     } catch {}
   }
 
+  function loadConversations(){
+    const raw = localStorage.getItem(LS_CONVERSATIONS);
+    if (!raw) return [];
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function persistCurrentConvIdIfEnabled(id){
+    if (!historyEnabled) return;
+    try { localStorage.setItem(LS_CURRENT_CONV_ID, id); } catch {}
+  }
+
+  function loadCurrentConvId(){
+    return localStorage.getItem(LS_CURRENT_CONV_ID);
+  }
+
+  // ============ Multi-conversation state ============
+  let conversations = loadConversations();
+  let currentConvId = loadCurrentConvId();
+
+  function createNewConversation(){
+    const newConv = {
+      id: Date.now().toString(),
+      title: "新对话",
+      messages: []
+    };
+    conversations.unshift(newConv);
+    currentConvId = newConv.id;
+    persistConversationsIfEnabled(conversations);
+    persistCurrentConvIdIfEnabled(currentConvId);
+    renderHistoryList();
+    switchConversation(currentConvId);
+  }
+
+  function getCurrentConversation(){
+    return conversations.find(c => c.id === currentConvId) || null;
+  }
+
+  function switchConversation(convId){
+    currentConvId = convId;
+    const conv = getCurrentConversation();
+
+    clearUIRows();
+
+    if (conv && Array.isArray(conv.messages)) {
+      for (const m of conv.messages) {
+        const r = makeRow(m.role === "user" ? "user" : "assistant");
+        r.bubble.textContent = m.content || "";
+        r.stats.textContent = "";
+      }
+    }
+
+    if (historyEnabled) persistCurrentConvIdIfEnabled(currentConvId);
+    renderHistoryList();
+    updateSpacer();
+    scrollToBottom();
+  }
+
+  function deleteConversation(convId, event){
+    if (event) event.stopPropagation();
+    if (!confirm("确定要删除这个对话吗？")) return;
+
+    conversations = conversations.filter(c => c.id !== convId);
+
+    if (currentConvId === convId) {
+      const nextId = conversations[0]?.id || null;
+      if (!nextId) {
+        conversations = [];
+        createNewConversation();
+        return;
+      }
+      switchConversation(nextId);
+    } else {
+      renderHistoryList();
+    }
+
+    persistConversationsIfEnabled(conversations);
+  }
+
+  function renderHistoryList(){
+    if (!historyListEl) return;
+    historyListEl.innerHTML = "";
+
+    for (const conv of conversations) {
+      const item = document.createElement("div");
+      item.className = "history-item" + (conv.id === currentConvId ? " active" : "");
+      item.innerHTML = `
+        <span class="history-title">${conv.title || "新对话"}</span>
+        <button class="delete-btn" type="button" aria-label="delete" data-del="${conv.id}">🗑️</button>
+      `;
+
+      item.onclick = () => switchConversation(conv.id);
+      const delBtn = item.querySelector("button[data-del]");
+      if (delBtn) {
+        delBtn.addEventListener("click", (e) => deleteConversation(conv.id, e));
+      }
+
+      historyListEl.appendChild(item);
+    }
+  }
+
+  if (newChatBtn) {
+    newChatBtn.addEventListener("click", () => createNewConversation());
+  }
+
+  // ============ Ensure initial conversation ============
+  if (conversations.length === 0) {
+    createNewConversation();
+  } else {
+    const exists = conversations.some(c => c.id === currentConvId);
+    if (!exists) currentConvId = conversations[0].id;
+    renderHistoryList();
+    switchConversation(currentConvId);
+  }
+
+  // ============ Model selector (optional: if config injected modelSel/personaToggle etc) ============
   function initModels(){
+    if (!modelSel) return;
     modelSel.innerHTML = "";
     for (const m of MODELS) {
       const opt = document.createElement("option");
@@ -178,79 +287,91 @@
       opt.textContent = m.label;
       modelSel.appendChild(opt);
     }
-
     const saved = localStorage.getItem(LS_MODEL);
     modelSel.value = saved || MODELS[0].id;
-
     modelSel.addEventListener("change", () => {
       localStorage.setItem(LS_MODEL, modelSel.value);
     });
   }
 
-  // 😈/😇
-  personaToggle.addEventListener("click", () => {
-    useBuiltin = !useBuiltin;
-    personaToggle.textContent = useBuiltin ? "😈" : "😇";
-    localStorage.setItem(LS_USE_BUILTIN, useBuiltin ? "1" : "0");
-  });
+  if (personaToggle) {
+    personaToggle.addEventListener("click", () => {
+      useBuiltin = !useBuiltin;
+      personaToggle.textContent = useBuiltin ? "😈" : "😇";
+      localStorage.setItem(LS_USE_BUILTIN, useBuiltin ? "1" : "0");
+    });
+  }
 
-  // Settings
-  settingsBtn.addEventListener("click", () => {
-    settingsMask.style.display = "flex";
-    historyKeepEl.checked = historyEnabled;
-    promptKeepEl.checked = promptEnabled;
-    customPromptEl.value = (localStorage.getItem(LS_CUSTOM_PROMPT) || "");
-  });
-  closeSettingsBtn.addEventListener("click", () => {
-    settingsMask.style.display = "none";
-  });
-  settingsMask.addEventListener("click", (e) => {
-    if (e.target === settingsMask) settingsMask.style.display = "none";
-  });
+  // Settings UI
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      settingsMask.style.display = "flex";
+      if (historyKeepEl) historyKeepEl.checked = historyEnabled;
+      if (promptKeepEl) promptKeepEl.checked = promptEnabled;
+      if (customPromptEl) customPromptEl.value = (localStorage.getItem(LS_CUSTOM_PROMPT) || "");
+    });
+  }
+  if (closeSettingsBtn) {
+    closeSettingsBtn.addEventListener("click", () => { settingsMask.style.display = "none"; });
+  }
+  if (settingsMask) {
+    settingsMask.addEventListener("click", (e) => { if (e.target === settingsMask) settingsMask.style.display = "none"; });
+  }
 
-  // history
-  historyKeepEl.addEventListener("change", () => {
-    historyEnabled = !!historyKeepEl.checked;
-    localStorage.setItem(LS_HISTORY_ENABLED, historyEnabled ? "1" : "0");
-    if (historyEnabled) persistSessionIfEnabled();
-  });
-  clearHistoryBtn.addEventListener("click", () => {
-    const ok = confirm("确定清除本地历史？\n只会删除对话记录，不会影响网页自定义人物模板。");
-    if (!ok) return;
-    localStorage.removeItem(LS_CHAT_SESSION);
-    session.length = 0;
-    clearUIRows();
-    updateSpacer();
-    scrollToBottom();
-  });
+  if (historyKeepEl) {
+    historyKeepEl.addEventListener("change", () => {
+      historyEnabled = !!historyKeepEl.checked;
+      localStorage.setItem(LS_HISTORY_ENABLED, historyEnabled ? "1" : "0");
+      if (historyEnabled) persistConversationsIfEnabled(conversations);
+    });
+  }
 
-  // custom prompt
-  promptKeepEl.addEventListener("change", () => {
-    promptEnabled = !!promptKeepEl.checked;
-    localStorage.setItem(LS_PROMPT_ENABLED, promptEnabled ? "1" : "0");
-    if (!promptEnabled) localStorage.removeItem(LS_CUSTOM_PROMPT);
-  });
-  savePromptBtn.addEventListener("click", () => {
-    const val = customPromptEl.value || "";
-    if (promptEnabled) localStorage.setItem(LS_CUSTOM_PROMPT, val);
-    else localStorage.removeItem(LS_CUSTOM_PROMPT);
-    settingsMask.style.display = "none";
-  });
-  clearPromptBtn.addEventListener("click", () => {
-    const ok = confirm("确定清除网页自定义人物模板？\n只会删除自定义模板，不会影响本地历史。");
-    if (!ok) return;
-    localStorage.removeItem(LS_CUSTOM_PROMPT);
-    customPromptEl.value = "";
-  });
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener("click", () => {
+      if (!confirm("确定清除本地历史？\n只会删除对话记录，不会影响网页自定义人物模板。")) return;
+      localStorage.removeItem(LS_CONVERSATIONS);
+      localStorage.removeItem(LS_CURRENT_CONV_ID);
+      // reset
+      conversations = [];
+      currentConvId = null;
+      clearUIRows();
+      createNewConversation();
+    });
+  }
+
+  if (promptKeepEl) {
+    promptKeepEl.addEventListener("change", () => {
+      promptEnabled = !!promptKeepEl.checked;
+      localStorage.setItem(LS_PROMPT_ENABLED, promptEnabled ? "1" : "0");
+      if (!promptEnabled) localStorage.removeItem(LS_CUSTOM_PROMPT);
+    });
+  }
+
+  if (savePromptBtn) {
+    savePromptBtn.addEventListener("click", () => {
+      const val = customPromptEl ? (customPromptEl.value || "") : "";
+      if (promptEnabled) localStorage.setItem(LS_CUSTOM_PROMPT, val);
+      else localStorage.removeItem(LS_CUSTOM_PROMPT);
+      if (settingsMask) settingsMask.style.display = "none";
+    });
+  }
+
+  if (clearPromptBtn) {
+    clearPromptBtn.addEventListener("click", () => {
+      if (!confirm("确定清除网页自定义人物模板？\n只会删除自定义模板，不会影响本地历史。")) return;
+      localStorage.removeItem(LS_CUSTOM_PROMPT);
+      if (customPromptEl) customPromptEl.value = "";
+    });
+  }
 
   // donate
   function openDonate(){ donateMask.style.display = "flex"; }
   function closeDonate(){ donateMask.style.display = "none"; }
-  donateBtn.addEventListener("click", openDonate);
-  donateClose.addEventListener("click", closeDonate);
-  donateMask.addEventListener("click", (e) => { if (e.target === donateMask) closeDonate(); });
+  if (donateBtn) donateBtn.addEventListener("click", openDonate);
+  if (donateClose) donateClose.addEventListener("click", closeDonate);
+  if (donateMask) donateMask.addEventListener("click", (e) => { if (e.target === donateMask) closeDonate(); });
 
-  // composer
+  // Scroll positioning updates
   inputEl.addEventListener("input", () => {
     inputEl.style.height = "auto";
     inputEl.style.height = inputEl.scrollHeight + "px";
@@ -260,7 +381,7 @@
   });
 
   function setupResizeObserver(){
-    if (!composerEl || typeof ResizeObserver === "undefined") return;
+    if (typeof ResizeObserver === "undefined" || !composerEl) return;
     const ro = new ResizeObserver(() => {
       const stick = isNearBottom();
       updateSpacer();
@@ -268,6 +389,7 @@
     });
     ro.observe(composerEl);
   }
+
   function setupViewportListener(){
     if (!window.visualViewport) return;
     window.visualViewport.addEventListener("resize", () => {
@@ -276,13 +398,14 @@
       if (stick) scrollToBottom();
     });
   }
+
   window.addEventListener("resize", () => {
     const stick = isNearBottom();
     updateSpacer();
     if (stick) scrollToBottom();
   });
 
-  // ✅ 进页面弹窗要密码（你要的“最完美版本”行为）
+  // Password prompt forever
   function askPasswordForever(){
     while (!chatPassword) {
       const input = prompt("请输入聊天密码:");
@@ -292,29 +415,48 @@
     }
   }
 
+  // Token stats cum
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
+  let totalOutEstimate = 0;
+
   async function send(){
     updateSpacer();
+
     const text = inputEl.value.trim();
     if (!text) return;
 
+    const conv = getCurrentConversation();
+    if (!conv) return;
+
+    // update title for first message
+    if (conv.title === "新对话") {
+      conv.title = text.substring(0, 15) + (text.length > 15 ? "..." : "");
+    }
+
+    // UI user row
     const userRow = makeRow("user");
     userRow.bubble.textContent = text;
 
+    // persist message to conversation
+    conv.messages.push({ role: "user", content: text });
+    if (historyEnabled) persistConversationsIfEnabled(conversations);
+
+    // update stats quick estimate
     const inEst = estimateTokens(text);
-    totalInEstimate += inEst;
-    userRow.stats.textContent = `Input(估算): ≈${inEst} | Total In(估算): ≈${totalInEstimate}`;
+    userRow.stats.textContent = `Input(估算): ≈${inEst}`;
 
-    session.push({ role: "user", content: text });
-    persistSessionIfEnabled();
-
+    // clear input
     inputEl.value = "";
     inputEl.style.height = "auto";
     updateSpacer();
     scrollToBottom();
 
+    // UI assistant row
     const aiRow = makeRow("assistant");
+    aiRow.stats.textContent = "";
+
     let outStartMs = 0;
-    let outEndMs = 0;
     let full = "";
     let exactUsage = null;
 
@@ -328,16 +470,15 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         password: chatPassword,
-        model: modelSel.value,
+        model: modelSel ? modelSel.value : (MODELS[0]?.id || ""),
         use_builtin_persona: useBuiltin,
         custom_system_prompt: customPrompt,
-        messages: session
+        messages: conv.messages
       })
     });
 
     if (res.status === 403) {
       alert("密码错误");
-      // 重新输入密码（按你最完美版本的习惯）
       chatPassword = null;
       askPasswordForever();
       return;
@@ -381,11 +522,12 @@
       }
     }
 
-    outEndMs = performance.now();
-    session.push({ role: "assistant", content: full });
-    persistSessionIfEnabled();
-
+    const outEndMs = performance.now();
     const seconds = Math.max(0.001, (outEndMs - (outStartMs || outEndMs)) / 1000);
+
+    // persist assistant message
+    conv.messages.push({ role: "assistant", content: full });
+    if (historyEnabled) persistConversationsIfEnabled(conversations);
 
     if (exactUsage && typeof exactUsage.completion_tokens === "number") {
       const p = exactUsage.prompt_tokens || 0;
@@ -412,7 +554,7 @@
     scrollToBottom();
   }
 
-  sendBtn.addEventListener("click", send);
+  if (sendBtn) sendBtn.addEventListener("click", send);
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -421,123 +563,14 @@
   });
 
   function init(){
-    // 进页面先要密码
     askPasswordForever();
-
     initModels();
     setupResizeObserver();
     setupViewportListener();
     updateSpacer();
-    restoreSessionIfEnabled();
     scrollToBottom();
   }
 
   init();
 })();
-// 1. 定义数据结构与初始化
-let conversations = JSON.parse(localStorage.getItem('chat_conversations')) || [];
-let currentConvId = null;
 
-// 页面加载时初始化
-function init() {
-    // 如果没有历史对话，默认创建一个
-    if (conversations.length === 0) {
-        createNewConversation();
-    } else {
-        // 如果有历史，默认选中第一个
-        switchConversation(conversations[0].id);
-    }
-    renderHistoryList();
-}
-
-// 2. 新建对话功能
-function createNewConversation() {
-    const newConv = {
-        id: Date.now().toString(), // 用时间戳作为唯一ID
-        title: '新对话',
-        messages: [] // 存放具体的聊天内容
-    };
-    conversations.unshift(newConv); // 新对话插入到数组最前面
-    currentConvId = newConv.id;
-    saveAndRender();
-}
-
-// 3. 切换对话功能
-function switchConversation(convId) {
-    currentConvId = convId;
-    const currentConv = conversations.find(c => c.id === convId);
-    
-    // 清空当前聊天界面，并重新渲染该对话的历史消息
-    const chatBox = document.getElementById('chat');
-    chatBox.innerHTML = '<div id="bottom-spacer"></div>';
-    
-    if (currentConv) {
-        currentConv.messages.forEach(msg => {
-            appendMessage(msg.role, msg.content); // 假设你已有 appendMessage 方法
-        });
-    }
-    renderHistoryList(); // 刷新侧边栏高亮状态
-}
-
-// 4. 发送消息时，同步保存到当前会话
-function sendMessage() {
-    const input = document.getElementById('msg');
-    const text = input.value.trim();
-    if (!text || !currentConvId) return;
-
-    const currentConv = conversations.find(c => c.id === currentConvId);
-    
-    // 保存用户消息
-    currentConv.messages.push({ role: 'user', content: text });
-    
-    // 如果是该对话的第一条消息，自动用这条消息作为标题
-    if (currentConv.title === '新对话') {
-        currentConv.title = text.substring(0, 15) + (text.length > 15 ? '...' : '');
-    }
-
-    // ... 这里是你原本调用 AI 接口获取回复的代码 ...
-    // 获取到 AI 回复后，记得也 push 进 currentConv.messages 里
-    
-    saveAndRender();
-    input.value = '';
-}
-
-// 5. 删除对话功能
-function deleteConversation(convId, event) {
-    event.stopPropagation(); // 阻止冒泡，防止触发切换对话
-    if (!confirm('确定要删除这个对话吗？')) return;
-    
-    conversations = conversations.filter(c => c.id !== convId);
-    if (currentConvId === convId) {
-        // 如果删掉的是当前对话，自动切换到第一个，或者新建一个
-        currentConvId = conversations[0]?.id || null;
-        if (!currentConvId) createNewConversation();
-        else switchConversation(currentConvId);
-    }
-    saveAndRender();
-}
-
-// 6. 统一保存与渲染
-function saveAndRender() {
-    localStorage.setItem('chat_conversations', JSON.stringify(conversations));
-    renderHistoryList();
-}
-
-// 7. 渲染侧边栏列表
-function renderHistoryList() {
-    const list = document.getElementById('historyList');
-    list.innerHTML = '';
-    conversations.forEach(conv => {
-        const item = document.createElement('div');
-        item.className = 'history-item' + (conv.id === currentConvId ? ' active' : '');
-        item.innerHTML = `
-            <span class="history-title">${conv.title}</span>
-            <button class="delete-btn" onclick="deleteConversation('${conv.id}', event)">🗑️</button>
-        `;
-        item.onclick = () => switchConversation(conv.id);
-        list.appendChild(item);
-    });
-}
-
-// 别忘了在页面加载时调用 init()
-window.addEventListener('load', init);
