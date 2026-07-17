@@ -1,53 +1,53 @@
-<!DOCTYPE html>
-<html>
-<head>
+
+<超文本标记语言>
+<头>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>DeepSeek Chat</title>
-  <link rel="stylesheet" href="/styles.css" />
-</head>
-<body>
+  <标题>DeepSeek 聊天</标题>
+  <链接 关系="样式表" 链接="/styles.css" />
+</头>
+<身体>
 <div id="app">
   <div id="topbar">
     <div class="topbar-shell">
-      <div class="topbar-scroll" id="topbarScroll">
+        
         <div class="topbar-inner">
-          <button class="iconbtn" id="donateBtn" title="打赏 / Donate">
+          <按钮 类="图标按钮" id="打赏按钮" 标题="打赏 / Donate">
             <span class="emoji">☕</span>
-          </button>
+          </按钮>
 
-          <a
-            href="https://github.com/MallocPointer/unlimited-ai"
-            target="_blank"
-            class="iconbtn"
+          <一个
+            链接="https://github.com/MallocPointer/unlimited-ai"
+            目标="_blank"
+            类="图标按钮"
             id="githubBtn"
-            style="text-decoration: none;"
-            title="GitHub 开源地址"
+            样式="文本装饰: 无;"
+            标题="GitHub 开源地址"
           >
-            <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <svg 高度="20" 宽度="20" 视口="0 0 16 16" 填充="当前颜色" aria-隐藏="true">
               <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
             </svg>
           </a>
 
-          <div class="pill model-pill">
-            <label for="modelSel" class="model-label">Model</label>
-            <select id="modelSel"></select>
+          <div class=" pill model-pill">
+            <标签 for="模型选择" 类="模型标签">模型</标签>
+            <选择 id="模型选择"></选择>
           </div>
 
-          <button class="iconbtn" id="personaToggle" title="😈=使用内置人物扮演 | 😇=不使用内置（网页自定义才生效）">😈</button>
-          <button class="iconbtn" id="settingsBtn" title="Settings">⚙️</button>
+          <按钮 类="图标按钮" id="人物切换" 标题="😈=使用内置人物扮演 | 😇=不使用内置（网页自定义才生效）">😈</按钮>
+          <按钮 类="图标按钮" id="设置按钮" 标题="设置">⚙️</按钮>
         </div>
       </div>
     </div>
   </div>
 
-  <div id="history">
-    <div class="chat" id="chat">
-      <div id="bottom-spacer"></div>
+  <div id="历史">
+      
+      <div id="底部间隔"></div>
     </div>
   </div>
 
-  <div class="input-floating">
+  <div class="输入浮动">
     <div class="input-inner" id="composer">
       <textarea id="msg" rows="1" placeholder="Message..."></textarea>
       <button id="sendBtn">Send</button>
@@ -119,8 +119,8 @@
         <img id="donateImg" src="/donate.png" alt="WeChat Pay QR" />
         <div id="donateNote">
           如果真的帮助到了你，请为我打赏一杯咖啡吧，有了你的赞助，我会将服务一直运行下去的。
-          我的联系方式：admin@airymoon.com。
-          项目开源地址：https://github.com/MallocPointer/unlimited-ai
+          我的联系方式:
+          项目开源地址：
         </div>
       </div>
     </div>
