@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>DeepSeek 聊天</title>
+  <title>DeepSeek Chat</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -19,14 +19,14 @@
     <div class="topbar-shell">
       <div class="topbar-scroll" id="topbarScroll">
         <div class="topbar-inner">
-          <button class="icon-button" id="donateBtn" title="打赏 / Donate">
+          <button class="iconbtn" id="donateBtn" title="打赏 / Donate">
             <span class="emoji">☕</span>
           </button>
 
           <a
             href="https://github.com/MallocPointer/unlimited-ai"
             target="_blank"
-            class="icon-button"
+            class="iconbtn"
             id="githubBtn"
             style="text-decoration: none;"
             title="GitHub 开源地址"
@@ -37,12 +37,12 @@
           </a>
 
           <div class="pill model-pill">
-            <label for="modelSel" class="model-label">模型</label>
+            <label for="modelSel" class="model-label">Model</label>
             <select id="modelSel"></select>
           </div>
 
-          <button class="icon-button" id="personaToggle" title="😈=使用内置人物扮演 | 😇=不使用内置（网页自定义才生效）">😈</button>
-          <button class="icon-button" id="settingsBtn" title="设置">⚙️</button>
+          <button class="iconbtn" id="personaToggle" title="😈=使用内置人物扮演 | 😇=不使用内置（网页自定义才生效）">😈</button>
+          <button class="iconbtn" id="settingsBtn" title="Settings">⚙️</button>
         </div>
       </div>
     </div>
@@ -50,7 +50,7 @@
 
   <div id="history">
     <div class="chat" id="chat">
-      <div id="bottomSpacer"></div>
+      <div id="bottom-spacer"></div>
     </div>
   </div>
 
@@ -126,8 +126,8 @@
         <img id="donateImg" src="/donate.png" alt="WeChat Pay QR" />
         <div id="donateNote">
           如果真的帮助到了你，请为我打赏一杯咖啡吧，有了你的赞助，我会将服务一直运行下去的。
-          我的联系方式:123456
-          项目开源地址：123456
+          我的联系方式：
+          项目开源地址：
         </div>
       </div>
     </div>

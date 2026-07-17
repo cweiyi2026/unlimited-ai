@@ -25,8 +25,8 @@
   const donateClose = document.getElementById("donateClose");
 
   const MODELS = (window.APP_MODELS || [
-    { id: "deepseek-ai/deepseek-v4-pro", label: "deepseek-v4-pro" },
-    { id: "z-ai/glm-5.1", label: "glm-5.1" },
+    { id: "meta/llama-3.1-405b-instruct", label: "meta/llama-3.1" },
+    { id: "z-ai/glm5", label: "glm5" },
     { id: "openai/gpt-oss-120b", label: "gpt-oss-120b" },
   ]);
 
@@ -47,7 +47,10 @@
   const LS_PROMPT_ENABLED = "cfw_prompt_enabled";
   const LS_CUSTOM_PROMPT = "cfw_custom_prompt_v1";
 
-    let useBuiltin = (localStorage.getItem(LS_USE_BUILTIN) ?? "1") === "1";
+  // ✅ 页面密码：每次进页面都弹窗（不落盘）
+  let chatPassword = null;
+
+  let useBuiltin = (localStorage.getItem(LS_USE_BUILTIN) ?? "1") === "1";
   personaToggle.textContent = useBuiltin ? "😈" : "😇";
 
   let historyEnabled = (localStorage.getItem(LS_HISTORY_ENABLED) ?? "0") === "1";
@@ -279,6 +282,15 @@
     if (stick) scrollToBottom();
   });
 
+  // ✅ 进页面弹窗要密码（你要的“最完美版本”行为）
+  function askPasswordForever(){
+    while (!chatPassword) {
+      const input = prompt("请输入聊天密码:");
+      if (input === null) continue;
+      chatPassword = input.trim();
+      if (!chatPassword) chatPassword = null;
+    }
+  }
 
   async function send(){
     updateSpacer();
@@ -315,12 +327,21 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        password: chatPassword,
         model: modelSel.value,
         use_builtin_persona: useBuiltin,
         custom_system_prompt: customPrompt,
         messages: session
       })
     });
+
+    if (res.status === 403) {
+      alert("密码错误");
+      // 重新输入密码（按你最完美版本的习惯）
+      chatPassword = null;
+      askPasswordForever();
+      return;
+    }
 
     if (!res.ok) {
       const t = await res.text().catch(() => "");
@@ -400,6 +421,9 @@
   });
 
   function init(){
+    // 进页面先要密码
+    askPasswordForever();
+
     initModels();
     setupResizeObserver();
     setupViewportListener();
@@ -410,3 +434,110 @@
 
   init();
 })();
+// 1. 定义数据结构与初始化
+let conversations = JSON.parse(localStorage.getItem('chat_conversations')) || [];
+let currentConvId = null;
+
+// 页面加载时初始化
+function init() {
+    // 如果没有历史对话，默认创建一个
+    if (conversations.length === 0) {
+        createNewConversation();
+    } else {
+        // 如果有历史，默认选中第一个
+        switchConversation(conversations[0].id);
+    }
+    renderHistoryList();
+}
+
+// 2. 新建对话功能
+function createNewConversation() {
+    const newConv = {
+        id: Date.now().toString(), // 用时间戳作为唯一ID
+        title: '新对话',
+        messages: [] // 存放具体的聊天内容
+    };
+    conversations.unshift(newConv); // 新对话插入到数组最前面
+    currentConvId = newConv.id;
+    saveAndRender();
+}
+
+// 3. 切换对话功能
+function switchConversation(convId) {
+    currentConvId = convId;
+    const currentConv = conversations.find(c => c.id === convId);
+    
+    // 清空当前聊天界面，并重新渲染该对话的历史消息
+    const chatBox = document.getElementById('chat');
+    chatBox.innerHTML = '<div id="bottom-spacer"></div>';
+    
+    if (currentConv) {
+        currentConv.messages.forEach(msg => {
+            appendMessage(msg.role, msg.content); // 假设你已有 appendMessage 方法
+        });
+    }
+    renderHistoryList(); // 刷新侧边栏高亮状态
+}
+
+// 4. 发送消息时，同步保存到当前会话
+function sendMessage() {
+    const input = document.getElementById('msg');
+    const text = input.value.trim();
+    if (!text || !currentConvId) return;
+
+    const currentConv = conversations.find(c => c.id === currentConvId);
+    
+    // 保存用户消息
+    currentConv.messages.push({ role: 'user', content: text });
+    
+    // 如果是该对话的第一条消息，自动用这条消息作为标题
+    if (currentConv.title === '新对话') {
+        currentConv.title = text.substring(0, 15) + (text.length > 15 ? '...' : '');
+    }
+
+    // ... 这里是你原本调用 AI 接口获取回复的代码 ...
+    // 获取到 AI 回复后，记得也 push 进 currentConv.messages 里
+    
+    saveAndRender();
+    input.value = '';
+}
+
+// 5. 删除对话功能
+function deleteConversation(convId, event) {
+    event.stopPropagation(); // 阻止冒泡，防止触发切换对话
+    if (!confirm('确定要删除这个对话吗？')) return;
+    
+    conversations = conversations.filter(c => c.id !== convId);
+    if (currentConvId === convId) {
+        // 如果删掉的是当前对话，自动切换到第一个，或者新建一个
+        currentConvId = conversations[0]?.id || null;
+        if (!currentConvId) createNewConversation();
+        else switchConversation(currentConvId);
+    }
+    saveAndRender();
+}
+
+// 6. 统一保存与渲染
+function saveAndRender() {
+    localStorage.setItem('chat_conversations', JSON.stringify(conversations));
+    renderHistoryList();
+}
+
+// 7. 渲染侧边栏列表
+function renderHistoryList() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    conversations.forEach(conv => {
+        const item = document.createElement('div');
+        item.className = 'history-item' + (conv.id === currentConvId ? ' active' : '');
+        item.innerHTML = `
+            <span class="history-title">${conv.title}</span>
+            <button class="delete-btn" onclick="deleteConversation('${conv.id}', event)">🗑️</button>
+        `;
+        item.onclick = () => switchConversation(conv.id);
+        list.appendChild(item);
+    });
+}
+
+// 别忘了在页面加载时调用 init()
+window.addEventListener('load', init);

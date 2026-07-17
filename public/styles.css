@@ -37,6 +37,61 @@ body{
   height:100%;
   display:flex;
   flex-direction:column;
+  /* 整体布局调整：让侧边栏和主内容并排 */
+#app {
+    display: flex;
+    height: 100vh;
+}
+
+#sidebar {
+    width: 250px;
+    background-color: #f0f2f5; /* 侧边栏背景色 */
+    border-right: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+#newChatBtn {
+    padding: 10px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    border: none;
+    background-color: #0078d7;
+    color: white;
+    border-radius: 5px;
+}
+
+#historyList {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.history-item {
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.history-item:hover {
+    background-color: #e0e0e0;
+}
+
+.history-item.active {
+    background-color: #d0e8ff; /* 当前选中对话的高亮色 */
+    font-weight: bold;
+}
+
+.delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.6;
+}
 }
 
 #topbar{
