@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>DeepSeek Chat</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="app">
+    <!-- 1. 左侧边栏 -->
+    <aside id="sidebar">
+        <button id="newChatBtn">+ 新对话</button>
+        <div id="historyList"></div>
+    </aside>
+
+    <!-- 2. 右侧主内容区 -->
+    <main id="main-content">
+        <!-- 顶部栏 -->
+        <div id="topbar">
+            <!-- 把你原来的 topbar-inner 里的按钮放这里 -->
+            <select id="modelSel" aria-label="model" style="margin-right:10px"></select>
+            <button class="icon-button" id="personaToggle" title="persona">😈</button>
+            <button class="icon-button" id="donateBtn" title="打赏">☕</button>
+            <button class="icon-button" id="settingsBtn" title="设置">⚙️</button>
+        </div>
+
+        <!-- 聊天历史展示区 -->
+        <div id="history">
+            <div class="chat" id="chat">
+                <div id="bottom-spacer"></div>
+            </div>
+        </div>
+
+        <!-- 底部输入框 -->
+        <div class="input-floating">
+            <div class="input-inner" id="composer">
+                <textarea id="msg" rows="1" placeholder="输入消息... (Shift+Enter 换行)"></textarea>
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+  <div id="settingsMask">
+
+
+    <div id="settings">
+
+      <div id="settingsHeader">
+        <h3>Settings</h3>
+        <div class="hint">所有数据仅保存在本地浏览器（localStorage），不会上传</div>
+      </div>
+
+      <div class="card">
+        <h4>本地对话记忆（Local History）</h4>
+        <p>
+          开启后：刷新页面/重开浏览器仍会恢复对话。关闭后：仅本次页面会话有效，不再落盘保存。<br>
+          ⚠️ 清除历史只会删除本地对话，不会影响“网页自定义人物模板”。
+        </p>
+
+        <div class="rowline">
+          <div class="toggle">
+            <input type="checkbox" id="historyKeep">
+            <label for="historyKeep">保留本地历史（启用本地记忆）</label>
+          </div>
+          <div class="btns">
+            <button class="smallbtn danger" id="clearHistory">清除本地历史</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>网页自定义人物模板（Web Custom Persona）</h4>
+        <p>
+          ⚠️ 仅当右上角为 <b>😇</b> 时，此处才会生效；<b>😈 会忽略这里</b>。<br>
+          清除模板只会删除网页自定义内容，不会影响本地历史。
+        </p>
+
+        <div class="rowline">
+          <div class="toggle">
+            <input type="checkbox" id="promptKeep">
+            <label for="promptKeep">保留自定义人物模板（保存到本地）</label>
+          </div>
+          <div class="btns">
+            <button class="smallbtn danger" id="clearPrompt">清除自定义模板</button>
+          </div>
+        </div>
+
+        <textarea id="customPrompt" placeholder="仅😇时生效：在这里写网页端自定义 system prompt（可多行）。"></textarea>
+
+        <div class="rowline">
+          <div></div>
+          <div class="btns">
+            <button class="smallbtn" id="savePrompt">保存</button>
+            <button class="smallbtn" id="closeSettings">关闭</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="donateMask">
+    <div id="donateCard">
+      <div id="donateHead">
+        <div class="t">打赏 / Donate</div>
+        <button id="donateClose">✕</button>
+      </div>
+      <div id="donateBody">
+        <img id="donateImg" src="/donate.png" alt="WeChat Pay QR" />
+        <div id="donateNote">
+          如果真的帮助到了你，请为我打赏一杯咖啡吧，有了你的赞助，我会将服务一直运行下去的。
+          我的联系方式：cweiyi2026@outlook.com
+          项目开源地址：
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script src="/app.js"></script>
+<script>
+  window.addEventListener("load", function () {
+    const scroller = document.getElementById("topbarScroll");
+    if (scroller) {
+      scroller.scrollLeft = scroller.scrollWidth;
+    }
+  });
+</script>
+</body>
+</html>
